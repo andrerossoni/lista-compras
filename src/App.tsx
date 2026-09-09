@@ -1,33 +1,29 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase, type ShoppingItem } from './lib/supabase'
 import ItemRow from './components/ItemRow'
 import NewItemRow from './components/NewItemRow'
+import PullToRefresh from './components/PullToRefresh'
 
 export default function App() {
   const [itemsById, setItemsById] = useState<Record<string, ShoppingItem>>({})
   const [loaded, setLoaded] = useState(false)
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
-  useEffect(() => {
-    let active = true
+  const fetchAll = useCallback(async () => {
+    const { data, error } = await supabase.from('shopping_items').select('*')
+    if (error) {
+      console.error(error)
+      return
+    }
+    const map: Record<string, ShoppingItem> = {}
+    for (const row of data ?? []) map[row.id] = row as ShoppingItem
+    setItemsById(map)
+  }, [])
 
-    supabase
-      .from('shopping_items')
-      .select('*')
-      .then(({ data, error }) => {
-        if (!active) return
-        if (error) {
-          console.error(error)
-          setLoaded(true)
-          return
-        }
-        const map: Record<string, ShoppingItem> = {}
-        for (const row of data ?? []) map[row.id] = row as ShoppingItem
-        setItemsById(map)
-        setLoaded(true)
-      })
-
-    const channel = supabase
-      .channel('shopping_items_changes')
+  const resubscribe = useCallback(() => {
+    if (channelRef.current) supabase.removeChannel(channelRef.current)
+    channelRef.current = supabase
+      .channel(`shopping_items_changes_${Date.now()}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'shopping_items' },
@@ -46,12 +42,37 @@ export default function App() {
         },
       )
       .subscribe()
+  }, [])
+
+  // Puxar pra atualizar: refaz o fetch e reabre o canal de tempo real,
+  // já que o socket pode ter caído silenciosamente sem que o app perceba.
+  const refresh = useCallback(async () => {
+    resubscribe()
+    await fetchAll()
+  }, [fetchAll, resubscribe])
+
+  useEffect(() => {
+    fetchAll().then(() => setLoaded(true))
+    resubscribe()
+
+    // No Android, o app instalado ("Adicionar à tela de início") pode ficar
+    // minimizado por horas — o WebSocket do tempo real cai nesse meio tempo
+    // e não volta sozinho. Ao reabrir (a aba fica visível de novo),
+    // resincroniza tudo.
+    function handleVisible() {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    document.addEventListener('visibilitychange', handleVisible)
+    window.addEventListener('pageshow', handleVisible)
+    window.addEventListener('focus', handleVisible)
 
     return () => {
-      active = false
-      supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', handleVisible)
+      window.removeEventListener('pageshow', handleVisible)
+      window.removeEventListener('focus', handleVisible)
+      if (channelRef.current) supabase.removeChannel(channelRef.current)
     }
-  }, [])
+  }, [fetchAll, resubscribe, refresh])
 
   const items = useMemo(() => Object.values(itemsById), [itemsById])
 
@@ -162,6 +183,7 @@ export default function App() {
         </div>
       </header>
 
+      <PullToRefresh onRefresh={refresh}>
       <main className="px-4 py-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
         {!loaded ? (
           <p className="px-1 text-[15px]" style={{ color: 'var(--text-secondary)' }}>
@@ -204,6 +226,7 @@ export default function App() {
           </>
         )}
       </main>
+      </PullToRefresh>
     </div>
   )
 }
