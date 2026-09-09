@@ -107,6 +107,13 @@ export default function App() {
     if (error) console.error(error)
   }
 
+  async function editItem(item: ShoppingItem, text: string) {
+    setItemsById((prev) => ({ ...prev, [item.id]: { ...item, text } }))
+
+    const { error } = await supabase.from('shopping_items').update({ text }).eq('id', item.id)
+    if (error) console.error(error)
+  }
+
   async function deleteItem(id: string) {
     setItemsById((prev) => {
       const next = { ...prev }
@@ -169,7 +176,7 @@ export default function App() {
               {pending.map((item, i) => (
                 <div key={item.id}>
                   {i > 0 && <Separator />}
-                  <ItemRow item={item} onToggle={toggleItem} onDelete={deleteItem} />
+                  <ItemRow item={item} onToggle={toggleItem} onDelete={deleteItem} onEdit={editItem} />
                 </div>
               ))}
               {pending.length > 0 && <Separator />}
@@ -188,7 +195,7 @@ export default function App() {
                   {completed.map((item, i) => (
                     <div key={item.id}>
                       {i > 0 && <Separator />}
-                      <ItemRow item={item} onToggle={toggleItem} onDelete={deleteItem} />
+                      <ItemRow item={item} onToggle={toggleItem} onDelete={deleteItem} onEdit={editItem} />
                     </div>
                   ))}
                 </div>
