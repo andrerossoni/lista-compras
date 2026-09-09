@@ -1,0 +1,98 @@
+import { useRef, useState } from 'react'
+import { Circle, CheckCircle, Trash } from '@phosphor-icons/react'
+import type { ShoppingItem } from '../lib/supabase'
+
+const DELETE_THRESHOLD = 72
+const MAX_DRAG = 96
+
+type Props = {
+  item: ShoppingItem
+  onToggle: (item: ShoppingItem) => void
+  onDelete: (id: string) => void
+}
+
+export default function ItemRow({ item, onToggle, onDelete }: Props) {
+  const [dragX, setDragX] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const startXRef = useRef<number | null>(null)
+  const startYRef = useRef<number | null>(null)
+  const axisRef = useRef<'none' | 'x' | 'y'>('none')
+
+  function handleTouchStart(e: React.TouchEvent) {
+    startXRef.current = e.touches[0].clientX
+    startYRef.current = e.touches[0].clientY
+    axisRef.current = 'none'
+    setDragging(true)
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (startXRef.current === null || startYRef.current === null) return
+    const dx = e.touches[0].clientX - startXRef.current
+    const dy = e.touches[0].clientY - startYRef.current
+
+    if (axisRef.current === 'none') {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+      axisRef.current = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+    }
+    if (axisRef.current !== 'x') return
+
+    e.preventDefault()
+    setDragX(Math.max(Math.min(dx, 0), -MAX_DRAG))
+  }
+
+  function handleTouchEnd() {
+    setDragging(false)
+    if (dragX <= -DELETE_THRESHOLD) {
+      onDelete(item.id)
+    }
+    setDragX(0)
+    startXRef.current = null
+    startYRef.current = null
+    axisRef.current = 'none'
+  }
+
+  return (
+    <div className="relative overflow-hidden">
+      <div
+        className="absolute inset-y-0 right-0 flex w-24 items-center justify-center"
+        style={{ background: 'var(--danger)' }}
+      >
+        <Trash size={20} weight="bold" color="#fff" />
+      </div>
+      <div
+        className="relative flex items-center gap-3 px-4 py-2.5"
+        style={{
+          background: 'var(--bg-elevated)',
+          transform: `translateX(${dragX}px)`,
+          transition: dragging ? 'none' : 'transform 200ms ease-out',
+          touchAction: 'pan-y',
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        <button
+          onClick={() => onToggle(item)}
+          className="flex shrink-0 items-center justify-center"
+          aria-label={item.completed ? 'Marcar como pendente' : 'Marcar como concluído'}
+        >
+          {item.completed ? (
+            <CheckCircle size={26} weight="fill" style={{ color: 'var(--accent)' }} />
+          ) : (
+            <Circle size={26} weight="regular" style={{ color: 'var(--text-tertiary)' }} />
+          )}
+        </button>
+        <span
+          className="flex-1 py-0.5 text-[17px] leading-snug"
+          style={{
+            color: item.completed ? 'var(--text-secondary)' : 'var(--text)',
+            textDecoration: item.completed ? 'line-through' : 'none',
+            wordBreak: 'break-word',
+          }}
+        >
+          {item.text}
+        </span>
+      </div>
+    </div>
+  )
+}
