@@ -24,8 +24,9 @@ export default function ItemRow({ item, onToggle, onDelete, onEdit }: Props) {
 
   useEffect(() => {
     if (editing) {
-      editInputRef.current?.focus()
-      editInputRef.current?.select()
+      const input = editInputRef.current
+      input?.focus()
+      input?.setSelectionRange(input.value.length, input.value.length)
     }
   }, [editing])
 
