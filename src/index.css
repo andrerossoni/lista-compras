@@ -10,6 +10,9 @@
   --accent: #30d158;
   --danger: #ff3b30;
   --header-bg: rgba(242, 242, 247, 0.85);
+  --card-shadow:
+    0 1px 2px rgba(30, 30, 35, 0.04),
+    0 2px 8px rgba(30, 30, 35, 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -21,6 +24,7 @@
     --text-secondary: rgba(235, 235, 245, 0.6);
     --text-tertiary: rgba(235, 235, 245, 0.3);
     --header-bg: rgba(0, 0, 0, 0.85);
+    --card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.055);
   }
 }
 
@@ -62,5 +66,46 @@ button {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+.list-card {
+  box-shadow: var(--card-shadow);
+}
+
+.item-enter {
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+@starting-style {
+  .item-enter {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+
+.skeleton-block {
+  background: var(--text-tertiary);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item-enter {
+    transition: none;
+  }
+  .skeleton-block {
+    animation: none;
   }
 }

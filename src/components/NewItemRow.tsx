@@ -26,7 +26,7 @@ export default function NewItemRow({ onAdd }: Props) {
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: 'var(--bg-elevated)' }}>
-      <Plus size={26} weight="regular" style={{ color: 'var(--accent)' }} className="shrink-0" />
+      <Plus size={26} weight="bold" style={{ color: 'var(--accent)' }} className="shrink-0" />
       <input
         ref={inputRef}
         value={value}

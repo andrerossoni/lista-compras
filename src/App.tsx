@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ShoppingCartSimple } from '@phosphor-icons/react'
 import { supabase, type ShoppingItem } from './lib/supabase'
 import ItemRow from './components/ItemRow'
 import NewItemRow from './components/NewItemRow'
@@ -167,14 +168,28 @@ export default function App() {
           borderBottom: '0.5px solid var(--separator)',
         }}
       >
-        <div className="flex items-center justify-between px-4 pb-3 pt-4">
-          <h1 className="text-[28px] font-bold" style={{ color: 'var(--text)' }}>
-            Mercado
-          </h1>
+        <div className="flex items-end justify-between px-4 pb-3 pt-4">
+          <div>
+            <h1
+              className="text-[32px] font-bold leading-tight tracking-tight"
+              style={{ color: 'var(--text)' }}
+            >
+              Mercado
+            </h1>
+            <p className="text-[13px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+              {loaded
+                ? pending.length > 0
+                  ? `${pending.length} ${pending.length === 1 ? 'item' : 'itens'}`
+                  : completed.length > 0
+                    ? 'Tudo pronto'
+                    : 'Sua lista está vazia'
+                : ' '}
+            </p>
+          </div>
           {completed.length > 0 && (
             <button
               onClick={clearCompleted}
-              className="text-[15px] font-medium"
+              className="text-[15px] font-medium transition-opacity active:opacity-50"
               style={{ color: 'var(--accent)' }}
             >
               Limpar concluídos
@@ -186,17 +201,23 @@ export default function App() {
       <PullToRefresh onRefresh={refresh}>
       <main className="px-4 py-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
         {!loaded ? (
-          <p className="px-1 text-[15px]" style={{ color: 'var(--text-secondary)' }}>
-            Carregando…
-          </p>
+          <ListSkeleton />
         ) : (
           <>
+            {pending.length === 0 && completed.length === 0 && (
+              <div className="item-enter flex flex-col items-center gap-2 pb-8 pt-6 text-center">
+                <ShoppingCartSimple size={36} weight="thin" style={{ color: 'var(--text-tertiary)' }} />
+                <p className="text-[15px]" style={{ color: 'var(--text-secondary)' }}>
+                  Adicione o primeiro item abaixo
+                </p>
+              </div>
+            )}
             <div
-              className="overflow-hidden rounded-[14px]"
+              className="list-card overflow-hidden rounded-[14px]"
               style={{ background: 'var(--bg-elevated)' }}
             >
               {pending.map((item, i) => (
-                <div key={item.id}>
+                <div key={item.id} className="item-enter">
                   {i > 0 && <Separator />}
                   <ItemRow item={item} onToggle={toggleItem} onDelete={deleteItem} onEdit={editItem} />
                 </div>
@@ -213,9 +234,12 @@ export default function App() {
                 >
                   Concluídos · {completed.length}
                 </p>
-                <div className="overflow-hidden rounded-[14px]" style={{ background: 'var(--bg-elevated)' }}>
+                <div
+                  className="list-card overflow-hidden rounded-[14px]"
+                  style={{ background: 'var(--bg-elevated)' }}
+                >
                   {completed.map((item, i) => (
-                    <div key={item.id}>
+                    <div key={item.id} className="item-enter">
                       {i > 0 && <Separator />}
                       <ItemRow item={item} onToggle={toggleItem} onDelete={deleteItem} onEdit={editItem} />
                     </div>
@@ -233,4 +257,21 @@ export default function App() {
 
 function Separator() {
   return <div style={{ height: '0.5px', background: 'var(--separator)', marginLeft: '52px' }} />
+}
+
+function ListSkeleton() {
+  const widths = ['55%', '70%', '40%']
+  return (
+    <div className="list-card overflow-hidden rounded-[14px]" style={{ background: 'var(--bg-elevated)' }}>
+      {widths.map((w, i) => (
+        <div key={i}>
+          {i > 0 && <Separator />}
+          <div className="flex items-center gap-3 px-4 py-2.5">
+            <div className="skeleton-block h-[26px] w-[26px] shrink-0 rounded-full" />
+            <div className="skeleton-block h-[15px] rounded-full" style={{ width: w }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }

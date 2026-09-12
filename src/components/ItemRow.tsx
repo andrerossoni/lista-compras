@@ -113,7 +113,7 @@ export default function ItemRow({ item, onToggle, onDelete, onEdit }: Props) {
       >
         <button
           onClick={() => onToggle(item)}
-          className="flex shrink-0 items-center justify-center"
+          className="flex shrink-0 items-center justify-center transition-transform duration-150 active:scale-90"
           aria-label={item.completed ? 'Marcar como pendente' : 'Marcar como concluído'}
         >
           {item.completed ? (
