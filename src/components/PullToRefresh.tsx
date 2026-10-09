@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowClockwise } from '@phosphor-icons/react'
 
 const THRESHOLD = 64
 const MAX_PULL = 100
@@ -100,16 +99,38 @@ export default function PullToRefresh({ onRefresh, children }: Props) {
           transition: pull === 0 || refreshing ? 'height 200ms ease-out' : 'none',
         }}
       >
-        <ArrowClockwise
-          size={20}
-          weight="bold"
+        {/* Arco que se desenha conforme o puxão e passa a girar ao soltar. */}
+        <svg
+          viewBox="0 0 24 24"
+          width="22"
+          height="22"
           style={{
-            color: 'var(--text-tertiary)',
-            opacity: progress,
-            transform: refreshing ? undefined : `rotate(${progress * 360}deg)`,
-            animation: refreshing ? 'ptr-spin 0.7s linear infinite' : undefined,
+            opacity: Math.min(progress * 1.4, 1),
+            transform: refreshing ? undefined : `rotate(${progress * 270 - 90}deg)`,
+            animation: refreshing ? 'ptr-spin 0.75s linear infinite' : undefined,
           }}
-        />
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="9.5"
+            fill="none"
+            stroke="var(--separator)"
+            strokeWidth="2.2"
+          />
+          <circle
+            cx="12"
+            cy="12"
+            r="9.5"
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            pathLength={1}
+            strokeDasharray={1}
+            strokeDashoffset={1 - (refreshing ? 0.25 : progress)}
+          />
+        </svg>
       </div>
       {children}
     </div>

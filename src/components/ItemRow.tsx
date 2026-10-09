@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Circle, CheckCircle, Trash } from '@phosphor-icons/react'
+import { Trash } from '@phosphor-icons/react'
 import type { ShoppingItem } from '../lib/supabase'
+import Checkbox from './Checkbox'
 
 const DELETE_THRESHOLD = 72
 const MAX_DRAG = 96
@@ -58,6 +59,11 @@ export default function ItemRow({ item, onToggle, onDelete, onEdit }: Props) {
     }
   }
 
+  function handleToggle() {
+    navigator.vibrate?.(item.completed ? 8 : [0, 12])
+    onToggle(item)
+  }
+
   function handleTouchStart(e: React.TouchEvent) {
     startXRef.current = e.touches[0].clientX
     startYRef.current = e.touches[0].clientY
@@ -77,7 +83,10 @@ export default function ItemRow({ item, onToggle, onDelete, onEdit }: Props) {
     if (axisRef.current !== 'x') return
 
     e.preventDefault()
-    setDragX(Math.max(Math.min(dx, 0), -MAX_DRAG))
+    const next = Math.max(Math.min(dx, 0), -MAX_DRAG)
+    // Vibra uma vez ao cruzar o limite, como aviso de que soltar apaga.
+    if (next <= -DELETE_THRESHOLD && dragX > -DELETE_THRESHOLD) navigator.vibrate?.(10)
+    setDragX(next)
   }
 
   function handleTouchEnd() {
@@ -91,37 +100,37 @@ export default function ItemRow({ item, onToggle, onDelete, onEdit }: Props) {
     axisRef.current = 'none'
   }
 
+  const armed = dragX <= -DELETE_THRESHOLD
+
   return (
-    <div className="relative overflow-hidden">
+    <li className="item-enter group/row relative overflow-hidden">
       <div
         className="absolute inset-y-0 right-0 flex w-24 items-center justify-center"
-        style={{ background: 'var(--danger)' }}
+        style={{ background: 'var(--danger)', opacity: Math.min(-dragX / 40, 1) }}
       >
-        <Trash size={20} weight="bold" color="#fff" />
+        <Trash
+          size={20}
+          weight="bold"
+          color="#fff"
+          style={{
+            transform: `scale(${armed ? 1.15 : 0.9})`,
+            transition: 'transform 180ms cubic-bezier(0.3, 1.4, 0.5, 1)',
+          }}
+        />
       </div>
       <div
-        className="relative flex items-center gap-3 px-4 py-2.5"
+        className="row relative flex items-center gap-3.5 px-4 py-3 transition-colors"
         style={{
-          background: 'var(--bg-elevated)',
+          background: 'var(--surface)',
           transform: `translateX(${dragX}px)`,
-          transition: dragging ? 'none' : 'transform 200ms ease-out',
+          transition: dragging ? 'none' : 'transform 260ms cubic-bezier(0.2, 0.9, 0.2, 1)',
           touchAction: 'pan-y',
         }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <button
-          onClick={() => onToggle(item)}
-          className="flex shrink-0 items-center justify-center transition-transform duration-150 active:scale-90"
-          aria-label={item.completed ? 'Marcar como pendente' : 'Marcar como concluído'}
-        >
-          {item.completed ? (
-            <CheckCircle size={26} weight="fill" style={{ color: 'var(--accent)' }} />
-          ) : (
-            <Circle size={26} weight="regular" style={{ color: 'var(--text-tertiary)' }} />
-          )}
-        </button>
+        <Checkbox checked={item.completed} onChange={handleToggle} />
         {editing ? (
           <input
             ref={editInputRef}
@@ -129,24 +138,33 @@ export default function ItemRow({ item, onToggle, onDelete, onEdit }: Props) {
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={handleEditKeyDown}
             onBlur={commitEdit}
-            className="flex-1 bg-transparent py-0.5 text-[17px] leading-snug outline-none"
-            style={{ color: 'var(--text)' }}
+            className="w-full flex-1 bg-transparent py-0.5 text-[17px] leading-snug tracking-[-0.01em] outline-none"
           />
         ) : (
           <span
             onClick={startEdit}
-            className="flex-1 py-0.5 text-[17px] leading-snug"
-            style={{
-              color: item.completed ? 'var(--text-secondary)' : 'var(--text)',
-              textDecoration: item.completed ? 'line-through' : 'none',
-              wordBreak: 'break-word',
-              cursor: 'text',
-            }}
+            className="flex-1 py-0.5 text-[17px] leading-snug tracking-[-0.01em]"
+            style={{ wordBreak: 'break-word', cursor: 'text' }}
           >
-            {item.text}
+            {/* O risco mora num span inline para medir o texto, não a linha. */}
+            <span
+              className={`strike ${item.completed ? 'strike-on' : ''}`}
+              style={{ color: item.completed ? 'var(--text-tertiary)' : 'var(--text)' }}
+            >
+              {item.text}
+            </span>
           </span>
         )}
+        {/* Sem toque não há swipe: no desktop a exclusão aparece no hover. */}
+        <button
+          onClick={() => onDelete(item.id)}
+          aria-label={`Excluir ${item.text}`}
+          className="-m-1.5 hidden shrink-0 p-1.5 opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100 md:block"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
+          <Trash size={17} weight="regular" />
+        </button>
       </div>
-    </div>
+    </li>
   )
 }

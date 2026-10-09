@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ShoppingCartSimple } from '@phosphor-icons/react'
+import { Basket, CaretRight } from '@phosphor-icons/react'
 import { supabase, type ShoppingItem } from './lib/supabase'
 import ItemRow from './components/ItemRow'
 import NewItemRow from './components/NewItemRow'
+import ProgressRing from './components/ProgressRing'
 import PullToRefresh from './components/PullToRefresh'
 
 export default function App() {
   const [itemsById, setItemsById] = useState<Record<string, ShoppingItem>>({})
   const [loaded, setLoaded] = useState(false)
+  const [showCompleted, setShowCompleted] = useState(false)
+  const [confirmingClear, setConfirmingClear] = useState(false)
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
   const fetchAll = useCallback(async () => {
@@ -89,6 +92,13 @@ export default function App() {
     [items],
   )
 
+  // A confirmação de "limpar" se desarma sozinha; nada de modal para isso.
+  useEffect(() => {
+    if (!confirmingClear) return
+    const timer = setTimeout(() => setConfirmingClear(false), 3500)
+    return () => clearTimeout(timer)
+  }, [confirmingClear])
+
   async function addItem(text: string) {
     const tempId = crypto.randomUUID()
     const position = Date.now() / 1000
@@ -149,6 +159,7 @@ export default function App() {
   async function clearCompleted() {
     const ids = completed.map((i) => i.id)
     if (ids.length === 0) return
+    setConfirmingClear(false)
     setItemsById((prev) => {
       const next = { ...prev }
       for (const id of ids) delete next[id]
@@ -158,120 +169,153 @@ export default function App() {
     if (error) console.error(error)
   }
 
+  const total = pending.length + completed.length
+  const empty = total === 0
+
   return (
-    <div className="min-h-dvh" style={{ background: 'var(--bg)' }}>
+    <div className="relative z-1 min-h-dvh">
       <header
-        className="sticky top-0 z-10 backdrop-blur-md"
+        className="sticky top-0 z-20 backdrop-blur-xl backdrop-saturate-150"
         style={{
           background: 'var(--header-bg)',
           paddingTop: 'env(safe-area-inset-top)',
-          borderBottom: '0.5px solid var(--separator)',
+          borderBottom: '1px solid var(--hairline)',
         }}
       >
-        <div className="flex items-end justify-between px-4 pb-3 pt-4">
-          <div>
-            <h1
-              className="text-[32px] font-bold leading-tight tracking-tight"
-              style={{ color: 'var(--text)' }}
+        <div className="mx-auto flex max-w-[34rem] items-center gap-4 px-5 pb-3.5 pt-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[30px] font-semibold leading-none tracking-[-0.035em]">Mercado</h1>
+            <p
+              className="tabular mt-1.5 text-[13px] font-medium tracking-[-0.005em]"
+              style={{ color: 'var(--text-secondary)' }}
             >
-              Mercado
-            </h1>
-            <p className="text-[13px] font-medium" style={{ color: 'var(--text-secondary)' }}>
-              {loaded
-                ? pending.length > 0
-                  ? `${pending.length} ${pending.length === 1 ? 'item' : 'itens'}`
-                  : completed.length > 0
-                    ? 'Tudo pronto'
-                    : 'Sua lista está vazia'
-                : ' '}
+              {!loaded
+                ? ' '
+                : empty
+                  ? 'Nada na lista'
+                  : pending.length === 0
+                    ? 'Tudo no carrinho'
+                    : completed.length > 0
+                      ? `${completed.length} de ${total} no carrinho`
+                      : `${total} ${total === 1 ? 'item para pegar' : 'itens para pegar'}`}
             </p>
           </div>
-          {completed.length > 0 && (
-            <button
-              onClick={clearCompleted}
-              className="text-[15px] font-medium transition-opacity active:opacity-50"
-              style={{ color: 'var(--accent)' }}
-            >
-              Limpar concluídos
-            </button>
-          )}
+          {loaded && !empty && <ProgressRing done={completed.length} total={total} />}
         </div>
       </header>
 
       <PullToRefresh onRefresh={refresh}>
-      <main className="px-4 py-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
-        {!loaded ? (
-          <ListSkeleton />
-        ) : (
-          <>
-            {pending.length === 0 && completed.length === 0 && (
-              <div className="item-enter flex flex-col items-center gap-2 pb-8 pt-6 text-center">
-                <ShoppingCartSimple size={36} weight="thin" style={{ color: 'var(--text-tertiary)' }} />
-                <p className="text-[15px]" style={{ color: 'var(--text-secondary)' }}>
-                  Adicione o primeiro item abaixo
-                </p>
-              </div>
-            )}
-            <div
-              className="list-card overflow-hidden rounded-[14px]"
-              style={{ background: 'var(--bg-elevated)' }}
-            >
-              {pending.map((item, i) => (
-                <div key={item.id} className="item-enter">
-                  {i > 0 && <Separator />}
-                  <ItemRow item={item} onToggle={toggleItem} onDelete={deleteItem} onEdit={editItem} />
-                </div>
-              ))}
-              {pending.length > 0 && <Separator />}
-              <NewItemRow onAdd={addItem} />
-            </div>
+        <main
+          className="mx-auto max-w-[34rem] px-5 pt-5"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)' }}
+        >
+          {!loaded ? (
+            <ListSkeleton />
+          ) : (
+            <>
+              {empty && <EmptyState />}
 
-            {completed.length > 0 && (
-              <div className="mt-7">
-                <p
-                  className="mb-2 px-1 text-[13px] font-semibold uppercase tracking-wide"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  Concluídos · {completed.length}
-                </p>
-                <div
-                  className="list-card overflow-hidden rounded-[14px]"
-                  style={{ background: 'var(--bg-elevated)' }}
-                >
-                  {completed.map((item, i) => (
-                    <div key={item.id} className="item-enter">
-                      {i > 0 && <Separator />}
-                      <ItemRow item={item} onToggle={toggleItem} onDelete={deleteItem} onEdit={editItem} />
-                    </div>
+              <section className="card overflow-hidden" aria-label="Itens para pegar">
+                <ul className="rows">
+                  {pending.map((item) => (
+                    <ItemRow
+                      key={item.id}
+                      item={item}
+                      onToggle={toggleItem}
+                      onDelete={deleteItem}
+                      onEdit={editItem}
+                    />
                   ))}
+                </ul>
+                <div className={`relative ${pending.length > 0 ? 'sep-top' : ''}`}>
+                  <NewItemRow onAdd={addItem} />
                 </div>
-              </div>
-            )}
-          </>
-        )}
-      </main>
+              </section>
+
+              {completed.length > 0 && (
+                <section className="mt-8" aria-label="Itens concluídos">
+                  <div className="mb-2.5 flex items-center justify-between gap-3 px-1.5">
+                    <button
+                      onClick={() => setShowCompleted((v) => !v)}
+                      aria-expanded={showCompleted}
+                      className="tabular -m-1 flex items-center gap-1 p-1 text-[13px] font-semibold tracking-[-0.005em] transition-opacity active:opacity-60"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      <CaretRight
+                        size={12}
+                        weight="bold"
+                        style={{
+                          transform: showCompleted ? 'rotate(90deg)' : 'none',
+                          transition: 'transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+                        }}
+                      />
+                      Concluídos · {completed.length}
+                    </button>
+                    <button
+                      onClick={() => (confirmingClear ? clearCompleted() : setConfirmingClear(true))}
+                      className="-m-1 p-1 text-[13px] font-semibold tracking-[-0.005em] transition-colors active:opacity-60"
+                      style={{ color: confirmingClear ? 'var(--danger)' : 'var(--text-secondary)' }}
+                    >
+                      {confirmingClear ? 'Confirmar' : 'Limpar'}
+                    </button>
+                  </div>
+
+                  {showCompleted && (
+                    <div className="card item-enter overflow-hidden">
+                      <ul className="rows">
+                        {completed.map((item) => (
+                          <ItemRow
+                            key={item.id}
+                            item={item}
+                            onToggle={toggleItem}
+                            onDelete={deleteItem}
+                            onEdit={editItem}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </section>
+              )}
+            </>
+          )}
+        </main>
       </PullToRefresh>
     </div>
   )
 }
 
-function Separator() {
-  return <div style={{ height: '0.5px', background: 'var(--separator)', marginLeft: '52px' }} />
+function EmptyState() {
+  return (
+    <div className="item-enter flex flex-col items-center gap-3 pb-9 pt-10 text-center">
+      <span
+        className="flex h-14 w-14 items-center justify-center rounded-2xl"
+        style={{ background: 'var(--accent-soft)' }}
+      >
+        <Basket size={26} weight="duotone" style={{ color: 'var(--accent)' }} />
+      </span>
+      <div>
+        <p className="text-[16px] font-semibold tracking-[-0.01em]">Lista vazia</p>
+        <p className="mt-0.5 text-[14px]" style={{ color: 'var(--text-secondary)' }}>
+          Escreva abaixo e aperte Enter
+        </p>
+      </div>
+    </div>
+  )
 }
 
 function ListSkeleton() {
-  const widths = ['55%', '70%', '40%']
+  const widths = ['58%', '72%', '41%']
   return (
-    <div className="list-card overflow-hidden rounded-[14px]" style={{ background: 'var(--bg-elevated)' }}>
-      {widths.map((w, i) => (
-        <div key={i}>
-          {i > 0 && <Separator />}
-          <div className="flex items-center gap-3 px-4 py-2.5">
-            <div className="skeleton-block h-[26px] w-[26px] shrink-0 rounded-full" />
-            <div className="skeleton-block h-[15px] rounded-full" style={{ width: w }} />
-          </div>
-        </div>
-      ))}
+    <div className="card overflow-hidden">
+      <ul className="rows">
+        {widths.map((w, i) => (
+          <li key={i} className="relative flex items-center gap-3.5 px-4 py-3">
+            <div className="skeleton-block h-[25px] w-[25px] shrink-0 rounded-full" />
+            <div className="skeleton-block h-[14px] rounded-full" style={{ width: w }} />
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
